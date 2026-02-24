@@ -1,0 +1,7 @@
+README.md
+WeeklyForecastScript_SETUP.md
+WeeklyForecastScript.js
+WeeklyForecastScript - Notification and Copier combined.js
+.git/**
+node_modules/**
+.DS_Store

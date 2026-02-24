@@ -1,0 +1,430 @@
+<script>
+/**
+ * Weekly Forecast - CA Notes Interface (Client-side)
+ *
+ * Client-side JavaScript for the HTML sidebar interface.
+ * Handles UI interactions, API calls, and state management.
+ */
+
+// ============================================
+// STATE MANAGEMENT
+// ============================================
+
+const state = {
+  currentUser: null,      // { email, caName, isAuthorized }
+  currentWeek: null,      // Current tab name
+  accounts: {             // Filtered account data
+    growers: [],
+    shrinkers: []
+  },
+  editingRow: null        // Row currently being edited
+};
+
+// ============================================
+// INITIALIZATION
+// ============================================
+
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Initializing CA Notes Interface...');
+  loadUserInfo();
+
+  // Event listeners
+  document.getElementById('week-dropdown').addEventListener('change', handleWeekChange);
+  document.getElementById('refresh-btn').addEventListener('click', handleRefresh);
+});
+
+// ============================================
+// USER INFO & AUTHORIZATION
+// ============================================
+
+function loadUserInfo() {
+  showLoading(true);
+
+  google.script.run
+    .withSuccessHandler(handleUserInfo)
+    .withFailureHandler(handleError)
+    .getCurrentUserInfo();
+}
+
+function handleUserInfo(userInfo) {
+  console.log('User info received:', userInfo);
+  state.currentUser = userInfo;
+
+  // Display user info
+  const userInfoDiv = document.getElementById('user-info');
+
+  if (!userInfo.isAuthorized) {
+    userInfoDiv.textContent = `${userInfo.email} (Not Authorized)`;
+    showError('You are not authorized to use this interface. Please contact your administrator.');
+    return;
+  }
+
+  userInfoDiv.textContent = `${userInfo.caName} (${userInfo.email})`;
+
+  // Load weekly tabs
+  loadWeeklyTabs();
+}
+
+// ============================================
+// WEEKLY TAB SELECTION
+// ============================================
+
+function loadWeeklyTabs() {
+  google.script.run
+    .withSuccessHandler(handleWeeklyTabs)
+    .withFailureHandler(handleError)
+    .getWeeklyTabList();
+}
+
+function handleWeeklyTabs(tabs) {
+  console.log('Weekly tabs received:', tabs);
+
+  const dropdown = document.getElementById('week-dropdown');
+  dropdown.innerHTML = '';
+
+  if (tabs.length === 0) {
+    dropdown.innerHTML = '<option value="">No weekly tabs found</option>';
+    showError('No weekly forecast tabs found.');
+    return;
+  }
+
+  // Populate dropdown
+  tabs.forEach(tab => {
+    const option = document.createElement('option');
+    option.value = tab.tabName;
+    option.textContent = tab.date + (tab.version > 1 ? ` (v${tab.version})` : '');
+    if (tab.isLatest) {
+      option.textContent += ' ⭐';
+      option.selected = true;
+    }
+    dropdown.appendChild(option);
+  });
+
+  // Load accounts for the selected (latest) tab
+  const selectedTab = dropdown.value;
+  if (selectedTab) {
+    loadAccountsForWeek(selectedTab);
+  }
+}
+
+function handleWeekChange(event) {
+  const selectedTab = event.target.value;
+  if (selectedTab) {
+    loadAccountsForWeek(selectedTab);
+  }
+}
+
+function handleRefresh() {
+  const selectedTab = document.getElementById('week-dropdown').value;
+  if (selectedTab) {
+    loadAccountsForWeek(selectedTab);
+  }
+}
+
+// ============================================
+// ACCOUNT LOADING
+// ============================================
+
+function loadAccountsForWeek(weeklyTabName) {
+  console.log('Loading accounts for week:', weeklyTabName);
+  showLoading(true);
+  state.currentWeek = weeklyTabName;
+
+  google.script.run
+    .withSuccessHandler(handleAccountsLoaded)
+    .withFailureHandler(handleError)
+    .getUserAccounts(weeklyTabName, state.currentUser.email);
+}
+
+function handleAccountsLoaded(data) {
+  console.log('Accounts loaded:', data);
+  showLoading(false);
+
+  if (data.error) {
+    showError(`Error loading accounts: ${data.error}`);
+    return;
+  }
+
+  state.accounts.growers = data.growers || [];
+  state.accounts.shrinkers = data.shrinkers || [];
+
+  renderAccounts();
+}
+
+// ============================================
+// RENDERING
+// ============================================
+
+function renderAccounts() {
+  const growersList = document.getElementById('growers-list');
+  const shrinkersList = document.getElementById('shrinkers-list');
+  const growersCount = document.getElementById('growers-count');
+  const shrinkersCount = document.getElementById('shrinkers-count');
+  const mainContent = document.getElementById('main-content');
+  const emptyState = document.getElementById('empty-state');
+
+  // Clear existing content
+  growersList.innerHTML = '';
+  shrinkersList.innerHTML = '';
+
+  // Update counts
+  growersCount.textContent = state.accounts.growers.length;
+  shrinkersCount.textContent = state.accounts.shrinkers.length;
+
+  // Show empty state if no accounts
+  if (state.accounts.growers.length === 0 && state.accounts.shrinkers.length === 0) {
+    mainContent.classList.add('hidden');
+    emptyState.classList.remove('hidden');
+    return;
+  }
+
+  mainContent.classList.remove('hidden');
+  emptyState.classList.add('hidden');
+
+  // Render growers
+  state.accounts.growers.forEach(account => {
+    growersList.appendChild(createAccountCard(account));
+  });
+
+  // Render shrinkers
+  state.accounts.shrinkers.forEach(account => {
+    shrinkersList.appendChild(createAccountCard(account));
+  });
+}
+
+function createAccountCard(account) {
+  const card = document.createElement('div');
+  card.className = 'account-card';
+  card.dataset.row = account.rowNumber;
+
+  // Account name
+  const nameDiv = document.createElement('div');
+  nameDiv.className = 'account-name';
+  nameDiv.textContent = account.accountName;
+
+  // Metrics
+  const metricsDiv = document.createElement('div');
+  metricsDiv.className = 'account-metrics';
+  metricsDiv.innerHTML = `
+    <span>WoW: ${formatPercent(account.wowPercent)}</span>
+    <span>MoM: ${formatPercent(account.momPercent)}</span>
+    <span>CA Var: ${formatPercent(account.caForecastVarPct)}</span>
+  `;
+
+  // Note display
+  const noteDisplay = document.createElement('div');
+  noteDisplay.className = 'note-display' + (account.currentNote ? '' : ' empty');
+  noteDisplay.id = `note-display-${account.rowNumber}`;
+  noteDisplay.textContent = account.currentNote || 'No notes yet. Click Edit to add.';
+
+  // Note editor (hidden by default)
+  const noteEditor = document.createElement('div');
+  noteEditor.className = 'note-editor hidden';
+  noteEditor.id = `note-editor-${account.rowNumber}`;
+
+  const textarea = document.createElement('textarea');
+  textarea.id = `note-text-${account.rowNumber}`;
+  textarea.value = account.currentNote || '';
+  textarea.placeholder = 'Add your notes here...';
+
+  const buttonGroup = document.createElement('div');
+  buttonGroup.className = 'button-group';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'primary';
+  saveBtn.textContent = 'Save';
+  saveBtn.onclick = () => saveNote(account.rowNumber);
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'secondary';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.onclick = () => cancelEdit(account.rowNumber);
+
+  buttonGroup.appendChild(saveBtn);
+  buttonGroup.appendChild(cancelBtn);
+  noteEditor.appendChild(textarea);
+  noteEditor.appendChild(buttonGroup);
+
+  // Edit button
+  const editBtn = document.createElement('button');
+  editBtn.className = 'secondary';
+  editBtn.id = `edit-btn-${account.rowNumber}`;
+  editBtn.textContent = 'Edit';
+  editBtn.onclick = () => startEdit(account.rowNumber);
+
+  // Assemble card
+  card.appendChild(nameDiv);
+  card.appendChild(metricsDiv);
+  card.appendChild(noteDisplay);
+  card.appendChild(noteEditor);
+  card.appendChild(editBtn);
+
+  return card;
+}
+
+// ============================================
+// NOTE EDITING
+// ============================================
+
+function startEdit(rowNumber) {
+  // Cancel any existing edit
+  if (state.editingRow !== null && state.editingRow !== rowNumber) {
+    cancelEdit(state.editingRow);
+  }
+
+  state.editingRow = rowNumber;
+
+  // Show editor, hide display and edit button
+  document.getElementById(`note-display-${rowNumber}`).classList.add('hidden');
+  document.getElementById(`note-editor-${rowNumber}`).classList.remove('hidden');
+  document.getElementById(`edit-btn-${rowNumber}`).classList.add('hidden');
+
+  // Focus textarea
+  document.getElementById(`note-text-${rowNumber}`).focus();
+}
+
+function cancelEdit(rowNumber) {
+  state.editingRow = null;
+
+  // Hide editor, show display and edit button
+  document.getElementById(`note-display-${rowNumber}`).classList.remove('hidden');
+  document.getElementById(`note-editor-${rowNumber}`).classList.add('hidden');
+  document.getElementById(`edit-btn-${rowNumber}`).classList.remove('hidden');
+}
+
+function saveNote(rowNumber) {
+  const noteText = document.getElementById(`note-text-${rowNumber}`).value;
+
+  // Optimistic UI update
+  const noteDisplay = document.getElementById(`note-display-${rowNumber}`);
+  noteDisplay.textContent = noteText || 'No notes yet. Click Edit to add.';
+  noteDisplay.className = 'note-display' + (noteText ? '' : ' empty');
+
+  // Hide editor
+  cancelEdit(rowNumber);
+
+  // Show saving toast
+  showToast('Saving note...', 'info');
+
+  // Save to server
+  google.script.run
+    .withSuccessHandler(function(result) {
+      handleSaveSuccess(result, rowNumber, noteText);
+    })
+    .withFailureHandler(function(error) {
+      handleSaveError(error, rowNumber);
+    })
+    .saveAccountNote(state.currentWeek, rowNumber, noteText);
+}
+
+function handleSaveSuccess(result, rowNumber, noteText) {
+  if (result.success) {
+    showToast('Note saved successfully!', 'success');
+
+    // Update state
+    const account = findAccountByRow(rowNumber);
+    if (account) {
+      account.currentNote = noteText;
+    }
+  } else {
+    showToast(`Error: ${result.error}`, 'error');
+
+    // Reload to sync state
+    setTimeout(() => {
+      loadAccountsForWeek(state.currentWeek);
+    }, 2000);
+  }
+}
+
+function handleSaveError(error, rowNumber) {
+  showToast(`Failed to save: ${error.message}`, 'error');
+
+  // Reload to sync state
+  setTimeout(() => {
+    loadAccountsForWeek(state.currentWeek);
+  }, 2000);
+}
+
+function findAccountByRow(rowNumber) {
+  let account = state.accounts.growers.find(a => a.rowNumber === rowNumber);
+  if (!account) {
+    account = state.accounts.shrinkers.find(a => a.rowNumber === rowNumber);
+  }
+  return account;
+}
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+
+function formatPercent(value) {
+  if (value === null || value === undefined || value === '' || value === 'N/A') {
+    return 'N/A';
+  }
+
+  if (typeof value === 'string' && value.includes('%')) {
+    return value;
+  }
+
+  const numValue = typeof value === 'number' ? value : parseFloat(value);
+
+  if (isNaN(numValue)) {
+    return 'N/A';
+  }
+
+  const percentValue = numValue * 100;
+  const sign = percentValue >= 0 ? '+' : '';
+  return `${sign}${percentValue.toFixed(0)}%`;
+}
+
+function showLoading(show) {
+  const loading = document.getElementById('loading');
+  const mainContent = document.getElementById('main-content');
+  const errorState = document.getElementById('error-state');
+
+  if (show) {
+    loading.classList.remove('hidden');
+    mainContent.classList.add('hidden');
+    errorState.classList.add('hidden');
+  } else {
+    loading.classList.add('hidden');
+  }
+}
+
+function showError(message) {
+  const errorState = document.getElementById('error-state');
+  const errorMessage = errorState.querySelector('.error-message');
+  const mainContent = document.getElementById('main-content');
+  const loading = document.getElementById('loading');
+
+  errorMessage.textContent = message;
+  errorState.classList.remove('hidden');
+  mainContent.classList.add('hidden');
+  loading.classList.add('hidden');
+}
+
+function showToast(message, type = 'info') {
+  // Remove existing toast
+  const existingToast = document.querySelector('.toast');
+  if (existingToast) {
+    existingToast.remove();
+  }
+
+  // Create new toast
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+
+  document.body.appendChild(toast);
+
+  // Auto-remove after 3 seconds
+  setTimeout(() => {
+    toast.remove();
+  }, 3000);
+}
+
+function handleError(error) {
+  console.error('Error:', error);
+  showError(`An error occurred: ${error.message || 'Unknown error'}`);
+}
+</script>
