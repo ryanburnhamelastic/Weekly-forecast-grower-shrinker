@@ -459,11 +459,19 @@ button:disabled {
       <button id="refresh-btn" title="Refresh data">↻</button>
     </div>
 
-    <div id="ca-filter-selector" style="padding: 12px 16px; background-color: white; border-bottom: 1px solid #dadce0; display: flex; align-items: center; gap: 8px;">
-      <label style="font-weight: 500; font-size: 12px; color: #5f6368; white-space: nowrap;">Filter by CA:</label>
-      <select id="ca-filter-dropdown" style="flex: 1; padding: 6px 8px; border: 1px solid #dadce0; border-radius: 4px; font-size: 13px; background-color: white; cursor: pointer;">
-        <option value="">All CAs</option>
-      </select>
+    <div style="padding: 12px 16px; background-color: white; border-bottom: 1px solid #dadce0; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px;">
+        <label style="font-weight: 500; font-size: 12px; color: #5f6368; white-space: nowrap;">Filter by CA:</label>
+        <select id="ca-filter-dropdown" style="flex: 1; padding: 6px 8px; border: 1px solid #dadce0; border-radius: 4px; font-size: 13px; background-color: white; cursor: pointer;">
+          <option value="">All CAs</option>
+        </select>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px;">
+        <label style="font-weight: 500; font-size: 12px; color: #5f6368; white-space: nowrap;">Filter by Area:</label>
+        <select id="area-filter-dropdown" style="flex: 1; padding: 6px 8px; border: 1px solid #dadce0; border-radius: 4px; font-size: 13px; background-color: white; cursor: pointer;">
+          <option value="">All Areas</option>
+        </select>
+      </div>
     </div>
 
     <div id="loading" class="hidden">
@@ -529,6 +537,7 @@ const state = {
     shrinkers: []
   },
   selectedCA: '',         // Currently selected CA filter
+  selectedArea: '',       // Currently selected Area filter
   editingRow: null        // Row currently being edited
 };
 
@@ -544,6 +553,7 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('week-dropdown').addEventListener('change', handleWeekChange);
   document.getElementById('refresh-btn').addEventListener('click', handleRefresh);
   document.getElementById('ca-filter-dropdown').addEventListener('change', handleCAFilterChange);
+  document.getElementById('area-filter-dropdown').addEventListener('change', handleAreaFilterChange);
 });
 
 // ============================================
@@ -629,7 +639,12 @@ function handleRefresh() {
 
 function handleCAFilterChange(event) {
   state.selectedCA = event.target.value;
-  applyCAFilter();
+  applyFilters();
+}
+
+function handleAreaFilterChange(event) {
+  state.selectedArea = event.target.value;
+  applyFilters();
 }
 
 function populateCAFilter() {
@@ -667,20 +682,60 @@ function populateCAFilter() {
   }
 }
 
-function applyCAFilter() {
-  if (!state.selectedCA) {
-    // No filter - show all accounts
-    state.accounts.growers = state.allAccounts.growers;
-    state.accounts.shrinkers = state.allAccounts.shrinkers;
+function populateAreaFilter() {
+  const dropdown = document.getElementById('area-filter-dropdown');
+
+  // Get unique Areas from all accounts
+  const allAreas = new Set();
+  state.allAccounts.growers.forEach(acc => {
+    if (acc.area) allAreas.add(acc.area);
+  });
+  state.allAccounts.shrinkers.forEach(acc => {
+    if (acc.area) allAreas.add(acc.area);
+  });
+
+  // Sort Area names alphabetically
+  const sortedAreas = Array.from(allAreas).sort();
+
+  // Clear existing options except "All Areas"
+  dropdown.innerHTML = '<option value="">All Areas</option>';
+
+  // Add Area options
+  sortedAreas.forEach(area => {
+    const option = document.createElement('option');
+    option.value = area;
+    option.textContent = area;
+    dropdown.appendChild(option);
+  });
+
+  // Restore previous selection if it still exists
+  if (state.selectedArea && sortedAreas.includes(state.selectedArea)) {
+    dropdown.value = state.selectedArea;
   } else {
-    // Filter by selected CA
-    state.accounts.growers = state.allAccounts.growers.filter(
-      acc => acc.customerArchitect === state.selectedCA
-    );
-    state.accounts.shrinkers = state.allAccounts.shrinkers.filter(
-      acc => acc.customerArchitect === state.selectedCA
-    );
+    state.selectedArea = '';
+    dropdown.value = '';
   }
+}
+
+function applyFilters() {
+  let filteredGrowers = state.allAccounts.growers;
+  let filteredShrinkers = state.allAccounts.shrinkers;
+
+  // Apply CA filter if selected
+  if (state.selectedCA) {
+    filteredGrowers = filteredGrowers.filter(acc => acc.customerArchitect === state.selectedCA);
+    filteredShrinkers = filteredShrinkers.filter(acc => acc.customerArchitect === state.selectedCA);
+  }
+
+  // Apply Area filter if selected
+  if (state.selectedArea) {
+    filteredGrowers = filteredGrowers.filter(acc => acc.area === state.selectedArea);
+    filteredShrinkers = filteredShrinkers.filter(acc => acc.area === state.selectedArea);
+  }
+
+  // Update displayed accounts
+  state.accounts.growers = filteredGrowers;
+  state.accounts.shrinkers = filteredShrinkers;
 
   renderAccounts();
 }
@@ -713,11 +768,12 @@ function handleAccountsLoaded(data) {
   state.allAccounts.growers = data.growers || [];
   state.allAccounts.shrinkers = data.shrinkers || [];
 
-  // Populate CA filter dropdown
+  // Populate filter dropdowns
   populateCAFilter();
+  populateAreaFilter();
 
-  // Apply current filter (or show all if no filter selected)
-  applyCAFilter();
+  // Apply current filters (or show all if no filter selected)
+  applyFilters();
 }
 
 // ============================================
@@ -771,12 +827,17 @@ function createAccountCard(account) {
   nameDiv.className = 'account-name';
   nameDiv.textContent = account.accountName;
 
-  // CA Name
-  const caDiv = document.createElement('div');
-  caDiv.style.fontSize = '12px';
-  caDiv.style.color = '#5f6368';
-  caDiv.style.marginBottom = '4px';
-  caDiv.textContent = `CA: ${account.customerArchitect || 'Unassigned'}`;
+  // CA Name and Area
+  const metaDiv = document.createElement('div');
+  metaDiv.style.fontSize = '12px';
+  metaDiv.style.color = '#5f6368';
+  metaDiv.style.marginBottom = '4px';
+  metaDiv.style.display = 'flex';
+  metaDiv.style.gap = '12px';
+  metaDiv.innerHTML = `
+    <span>CA: ${account.customerArchitect || 'Unassigned'}</span>
+    <span>Area: ${account.area || 'N/A'}</span>
+  `;
 
   // Metrics
   const metricsDiv = document.createElement('div');
@@ -830,7 +891,7 @@ function createAccountCard(account) {
 
   // Assemble card
   card.appendChild(nameDiv);
-  card.appendChild(caDiv);
+  card.appendChild(metaDiv);
   card.appendChild(metricsDiv);
   card.appendChild(noteDisplay);
   card.appendChild(noteEditor);
