@@ -483,6 +483,9 @@ button:disabled {
 
       <div id="empty-state" class="hidden">
         <p>No accounts assigned to you this week.</p>
+        <p style="font-size: 12px; margin-top: 8px; color: #5f6368;">
+          If you should have accounts, make sure your email is in the CA-Lookup tab.
+        </p>
       </div>
     </div>
 
@@ -549,16 +552,9 @@ function handleUserInfo(userInfo) {
 
   // Display user info
   const userInfoDiv = document.getElementById('user-info');
-
-  if (!userInfo.isAuthorized) {
-    userInfoDiv.textContent = `${userInfo.email} (Not Authorized)`;
-    showError('You are not authorized to use this interface. Please contact your administrator.');
-    return;
-  }
-
   userInfoDiv.textContent = `${userInfo.caName} (${userInfo.email})`;
 
-  // Load weekly tabs
+  // Load weekly tabs (even if user has no accounts, they can still browse)
   loadWeeklyTabs();
 }
 

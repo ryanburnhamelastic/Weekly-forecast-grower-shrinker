@@ -16,20 +16,20 @@ function doGet(e) {
 }
 
 /**
- * Gets current user information and authorization status
- * @returns {Object} User info with { email, displayName, caName, isAuthorized }
+ * Gets current user information
+ * @returns {Object} User info with { email, displayName, caName, hasAccounts }
  */
 function getCurrentUserInfo() {
   try {
     const userEmail = Session.getActiveUser().getEmail();
     const displayName = userEmail.split('@')[0].replace('.', ' ');
 
-    Logger.log(`getCurrentUserInfo: Checking authorization for ${userEmail}`);
+    Logger.log(`getCurrentUserInfo: Getting info for ${userEmail}`);
 
     // Read CA-Lookup to find user's CA name
     const caMapping = readCALookup();
     let caName = null;
-    let isAuthorized = false;
+    let hasAccounts = false;
 
     Logger.log(`getCurrentUserInfo: Found ${Object.keys(caMapping).length} entries in CA-Lookup`);
 
@@ -37,22 +37,21 @@ function getCurrentUserInfo() {
     for (const [accountId, caInfo] of Object.entries(caMapping)) {
       if (caInfo.email && caInfo.email.toLowerCase() === userEmail.toLowerCase()) {
         caName = caInfo.name;
-        isAuthorized = true;
-        Logger.log(`getCurrentUserInfo: Match found! CA Name: ${caName}`);
+        hasAccounts = true;
+        Logger.log(`getCurrentUserInfo: Found CA Name: ${caName}`);
         break;
       }
     }
 
-    if (!isAuthorized) {
-      Logger.log(`getCurrentUserInfo: No match found for ${userEmail}`);
-      Logger.log(`getCurrentUserInfo: Sample emails in CA-Lookup: ${Object.values(caMapping).slice(0, 5).map(c => c.email).join(', ')}`);
+    if (!hasAccounts) {
+      Logger.log(`getCurrentUserInfo: User not found in CA-Lookup (will show empty state)`);
     }
 
     return {
       email: userEmail,
       displayName: displayName,
-      caName: caName || 'Unknown',
-      isAuthorized: isAuthorized
+      caName: caName || displayName,
+      hasAccounts: hasAccounts
     };
   } catch (error) {
     Logger.log(`Error in getCurrentUserInfo: ${error.message}`);
@@ -60,8 +59,8 @@ function getCurrentUserInfo() {
     return {
       email: 'unknown@elastic.co',
       displayName: 'Unknown User',
-      caName: null,
-      isAuthorized: false,
+      caName: 'Unknown User',
+      hasAccounts: false,
       error: error.message
     };
   }
