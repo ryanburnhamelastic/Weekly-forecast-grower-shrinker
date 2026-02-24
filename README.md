@@ -39,18 +39,53 @@ The **CA Notes Interface** provides an easy-to-use sidebar for Customer Architec
 
 ### How to Use
 
-1. Open the target Google Sheet
-2. Go to **Weekly Forecast** menu > **CA Notes Interface**
-3. The sidebar will open on the right (300px width)
+**Option 1: Web App (Recommended)**
+
+1. Navigate to the published web app URL (see deployment instructions below)
+2. Sign in with your Google account (@elastic.co email)
+3. The interface will automatically load your assigned accounts
 4. Select a week from the dropdown (latest week is pre-selected)
 5. View your assigned accounts in Growers and Shrinkers sections
 6. Click **Edit** on any account to add or modify notes
 7. Click **Save** to save changes or **Cancel** to discard
 
+**Option 2: Google Sheets Sidebar**
+
+1. Open the target Google Sheet
+2. Go to **Weekly Forecast** menu > **CA Notes Interface**
+3. The sidebar will open on the right (300px width)
+4. Follow steps 4-7 from Option 1 above
+
+### Deploying the Web App
+
+To make the interface accessible via URL:
+
+1. Open the Apps Script project
+2. Click **Deploy** > **New deployment**
+3. Click **Select type** > **Web app**
+4. Configure the deployment:
+   - **Description**: "CA Notes Interface v1.0"
+   - **Execute as**: Me (your email)
+   - **Who has access**: Anyone within Elastic (or specific users)
+5. Click **Deploy**
+6. Copy the **Web app URL** (e.g., `https://script.google.com/macros/s/...`)
+7. Share this URL with all CAs
+
+**Important**: Only users listed in the CA-Lookup tab (with valid email addresses in column D) will be able to use the interface. Others will see an "Not Authorized" message.
+
+**Updating the Web App**:
+1. Make changes locally and run `clasp push`
+2. Go to **Deploy** > **Manage deployments**
+3. Click the edit icon (pencil) next to your deployment
+4. Update the **Version** to "New version"
+5. Click **Deploy**
+
 ### Technical Details
 
 The interface uses:
-- **Google Apps Script HTML Service** for the sidebar
+- **Google Apps Script Web App** with `doGet()` for standalone access
+- **HTML Service** for both web app and sidebar modes
+- **Responsive design** - adapts to mobile, tablet, and desktop screens
 - **Server-side authorization** via CA-Lookup email matching
 - **Row-level security** - users can only edit accounts assigned to them
 - **Optimistic UI updates** for instant feedback
