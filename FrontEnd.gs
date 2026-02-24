@@ -1,9 +1,35 @@
 /**
  * Weekly Forecast - CA Notes Interface (Frontend)
  *
- * Server-side API functions for the HTML sidebar interface.
+ * Server-side API functions for the HTML sidebar interface and web app.
  * Provides authentication, data retrieval, and save operations.
  */
+
+// ============================================
+// WEB APP ENTRY POINT
+// ============================================
+
+/**
+ * Web app entry point - serves the CA Notes Interface as a standalone web app
+ * @param {Object} e - Event parameter (contains query parameters)
+ * @returns {HtmlOutput} The web app HTML
+ */
+function doGet(e) {
+  try {
+    const html = HtmlService.createTemplateFromFile('Sidebar')
+      .evaluate()
+      .setTitle('Weekly Forecast - CA Notes')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+
+    return html;
+  } catch (error) {
+    Logger.log(`Error in doGet: ${error.message}`);
+    return HtmlService.createHtmlOutput(
+      '<h1>Error</h1><p>Failed to load the interface: ' + error.message + '</p>'
+    );
+  }
+}
 
 // ============================================
 // AUTHENTICATION & AUTHORIZATION
