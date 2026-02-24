@@ -459,6 +459,13 @@ button:disabled {
       <button id="refresh-btn" title="Refresh data">↻</button>
     </div>
 
+    <div id="ca-filter-selector" style="padding: 12px 16px; background-color: white; border-bottom: 1px solid #dadce0; display: flex; align-items: center; gap: 8px;">
+      <label style="font-weight: 500; font-size: 12px; color: #5f6368; white-space: nowrap;">Filter by CA:</label>
+      <select id="ca-filter-dropdown" style="flex: 1; padding: 6px 8px; border: 1px solid #dadce0; border-radius: 4px; font-size: 13px; background-color: white; cursor: pointer;">
+        <option value="">All CAs</option>
+      </select>
+    </div>
+
     <div id="loading" class="hidden">
       <div class="spinner"></div>
       <p>Loading accounts...</p>
@@ -511,12 +518,17 @@ button:disabled {
 // ============================================
 
 const state = {
-  currentUser: null,      // { email, caName, isAuthorized }
+  currentUser: null,      // { email, caName, hasAccounts }
   currentWeek: null,      // Current tab name
-  accounts: {             // Filtered account data
+  allAccounts: {          // All accounts (unfiltered)
     growers: [],
     shrinkers: []
   },
+  accounts: {             // Filtered account data (for display)
+    growers: [],
+    shrinkers: []
+  },
+  selectedCA: '',         // Currently selected CA filter
   editingRow: null        // Row currently being edited
 };
 
@@ -531,6 +543,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Event listeners
   document.getElementById('week-dropdown').addEventListener('change', handleWeekChange);
   document.getElementById('refresh-btn').addEventListener('click', handleRefresh);
+  document.getElementById('ca-filter-dropdown').addEventListener('change', handleCAFilterChange);
 });
 
 // ============================================
@@ -614,6 +627,64 @@ function handleRefresh() {
   }
 }
 
+function handleCAFilterChange(event) {
+  state.selectedCA = event.target.value;
+  applyCAFilter();
+}
+
+function populateCAFilter() {
+  const dropdown = document.getElementById('ca-filter-dropdown');
+
+  // Get unique CA names from all accounts
+  const allCAs = new Set();
+  state.allAccounts.growers.forEach(acc => {
+    if (acc.customerArchitect) allCAs.add(acc.customerArchitect);
+  });
+  state.allAccounts.shrinkers.forEach(acc => {
+    if (acc.customerArchitect) allCAs.add(acc.customerArchitect);
+  });
+
+  // Sort CA names alphabetically
+  const sortedCAs = Array.from(allCAs).sort();
+
+  // Clear existing options except "All CAs"
+  dropdown.innerHTML = '<option value="">All CAs</option>';
+
+  // Add CA options
+  sortedCAs.forEach(ca => {
+    const option = document.createElement('option');
+    option.value = ca;
+    option.textContent = ca;
+    dropdown.appendChild(option);
+  });
+
+  // Restore previous selection if it still exists
+  if (state.selectedCA && sortedCAs.includes(state.selectedCA)) {
+    dropdown.value = state.selectedCA;
+  } else {
+    state.selectedCA = '';
+    dropdown.value = '';
+  }
+}
+
+function applyCAFilter() {
+  if (!state.selectedCA) {
+    // No filter - show all accounts
+    state.accounts.growers = state.allAccounts.growers;
+    state.accounts.shrinkers = state.allAccounts.shrinkers;
+  } else {
+    // Filter by selected CA
+    state.accounts.growers = state.allAccounts.growers.filter(
+      acc => acc.customerArchitect === state.selectedCA
+    );
+    state.accounts.shrinkers = state.allAccounts.shrinkers.filter(
+      acc => acc.customerArchitect === state.selectedCA
+    );
+  }
+
+  renderAccounts();
+}
+
 // ============================================
 // ACCOUNT LOADING
 // ============================================
@@ -626,7 +697,7 @@ function loadAccountsForWeek(weeklyTabName) {
   google.script.run
     .withSuccessHandler(handleAccountsLoaded)
     .withFailureHandler(handleError)
-    .getUserAccounts(weeklyTabName, state.currentUser.email);
+    .getAllAccounts(weeklyTabName);
 }
 
 function handleAccountsLoaded(data) {
@@ -638,10 +709,15 @@ function handleAccountsLoaded(data) {
     return;
   }
 
-  state.accounts.growers = data.growers || [];
-  state.accounts.shrinkers = data.shrinkers || [];
+  // Store all accounts (unfiltered)
+  state.allAccounts.growers = data.growers || [];
+  state.allAccounts.shrinkers = data.shrinkers || [];
 
-  renderAccounts();
+  // Populate CA filter dropdown
+  populateCAFilter();
+
+  // Apply current filter (or show all if no filter selected)
+  applyCAFilter();
 }
 
 // ============================================
@@ -695,6 +771,13 @@ function createAccountCard(account) {
   nameDiv.className = 'account-name';
   nameDiv.textContent = account.accountName;
 
+  // CA Name
+  const caDiv = document.createElement('div');
+  caDiv.style.fontSize = '12px';
+  caDiv.style.color = '#5f6368';
+  caDiv.style.marginBottom = '4px';
+  caDiv.textContent = `CA: ${account.customerArchitect || 'Unassigned'}`;
+
   // Metrics
   const metricsDiv = document.createElement('div');
   metricsDiv.className = 'account-metrics';
@@ -747,6 +830,7 @@ function createAccountCard(account) {
 
   // Assemble card
   card.appendChild(nameDiv);
+  card.appendChild(caDiv);
   card.appendChild(metricsDiv);
   card.appendChild(noteDisplay);
   card.appendChild(noteEditor);

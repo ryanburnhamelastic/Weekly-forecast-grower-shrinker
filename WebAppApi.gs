@@ -118,12 +118,11 @@ function getWeeklyTabList() {
 }
 
 /**
- * Gets user's assigned accounts for a specific weekly tab
+ * Gets ALL accounts for a specific weekly tab (not filtered by user)
  * @param {string} weeklyTabName - Name of the weekly tab
- * @param {string} userEmail - User's email address
  * @returns {Object} Object with { growers, shrinkers, tabName, lastUpdated }
  */
-function getUserAccounts(weeklyTabName, userEmail) {
+function getAllAccounts(weeklyTabName) {
   try {
     const targetSheet = SpreadsheetApp.openById(getTargetSpreadsheetId());
     const tab = targetSheet.getSheetByName(weeklyTabName);
@@ -132,32 +131,11 @@ function getUserAccounts(weeklyTabName, userEmail) {
       throw new Error(`Tab "${weeklyTabName}" not found`);
     }
 
-    // Get user's CA name from CA-Lookup
-    const caMapping = readCALookup();
-    let userCAName = null;
-
-    for (const [accountId, caInfo] of Object.entries(caMapping)) {
-      if (caInfo.email && caInfo.email.toLowerCase() === userEmail.toLowerCase()) {
-        userCAName = caInfo.name;
-        break;
-      }
-    }
-
-    if (!userCAName) {
-      return {
-        growers: [],
-        shrinkers: [],
-        tabName: weeklyTabName,
-        lastUpdated: new Date().toISOString(),
-        error: 'User not found in CA-Lookup'
-      };
-    }
-
-    // Read data from tab
+    // Read ALL accounts from tab (no filtering by CA)
     // Growers: rows 3-13 (header row 2, data rows 3-13)
     // Shrinkers: rows 17-27 (header row 16, data rows 17-27)
-    const growers = extractAccountsFromSection(tab, 3, 13, userCAName, 'Growers');
-    const shrinkers = extractAccountsFromSection(tab, 17, 27, userCAName, 'Shrinkers');
+    const growers = extractAllAccountsFromSection(tab, 3, 13, 'Growers');
+    const shrinkers = extractAllAccountsFromSection(tab, 17, 27, 'Shrinkers');
 
     return {
       growers: growers,
@@ -167,7 +145,7 @@ function getUserAccounts(weeklyTabName, userEmail) {
     };
 
   } catch (error) {
-    Logger.log(`Error in getUserAccounts: ${error.message}`);
+    Logger.log(`Error in getAllAccounts: ${error.message}`);
     return {
       growers: [],
       shrinkers: [],
@@ -179,15 +157,14 @@ function getUserAccounts(weeklyTabName, userEmail) {
 }
 
 /**
- * Helper function to extract accounts from a section (Growers or Shrinkers)
+ * Helper function to extract ALL accounts from a section (no CA filtering)
  * @param {Sheet} sheet - The sheet to read from
  * @param {number} startRow - Start row (1-indexed)
  * @param {number} endRow - End row (1-indexed)
- * @param {string} caName - CA name to filter by
  * @param {string} section - Section name ('Growers' or 'Shrinkers')
  * @returns {Array} Array of account objects
  */
-function extractAccountsFromSection(sheet, startRow, endRow, caName, section) {
+function extractAllAccountsFromSection(sheet, startRow, endRow, section) {
   const accounts = [];
 
   // Column structure (1-indexed):
@@ -213,8 +190,8 @@ function extractAccountsFromSection(sheet, startRow, endRow, caName, section) {
     const customerArchitect = rowData[15] ? rowData[15].toString().trim() : ''; // Column 16
     const notes = rowData[16] ? rowData[16].toString().trim() : '';         // Column 17
 
-    // Filter by Customer Architect column
-    if (customerArchitect === caName && accountName) {
+    // Include all accounts that have a name (no CA filtering)
+    if (accountName) {
       accounts.push({
         accountId: accountId,
         accountName: accountName,
@@ -224,6 +201,7 @@ function extractAccountsFromSection(sheet, startRow, endRow, caName, section) {
         caForecast: caForecast,
         caForecastVar: caForecastVar,
         caForecastVarPct: caForecastVarPct,
+        customerArchitect: customerArchitect,  // Include CA name for filtering
         currentNote: notes,
         rowNumber: row,
         section: section
