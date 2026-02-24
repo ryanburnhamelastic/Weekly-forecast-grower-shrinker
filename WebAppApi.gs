@@ -178,12 +178,12 @@ function extractAllAccountsFromSection(sheet, startRow, endRow, section) {
 
     // Array is 0-indexed, so column N is at index N-1
     const accountName = rowData[2] ? rowData[2].toString().trim() : '';     // Column C
-    const area = rowData[3] ? rowData[3].toString().trim() : '';            // Column D (assuming)
-    const wowPercent = rowData[7];                                          // Column H (WoW % ECU Change)
+    const area = rowData[3] ? rowData[3].toString().trim() : '';            // Column D
+    const wowPercent = rowData[8];                                          // Column I (WoW % ECU Change)
     const momPercent = rowData[9];                                          // Column J (Tracking MoM ARR Growth)
-    const caForecast = rowData[11];                                         // Column L
-    const caForecastVar = rowData[12];                                      // Column M
-    const caForecastVarPct = rowData[13];                                   // Column N
+    const caForecast = rowData[11];                                         // Column L (CA Forecast)
+    const caForecastVar = rowData[12];                                      // Column M (CA Forecast Var $)
+    const caForecastVarPct = rowData[14];                                   // Column O (CA Forecast Var %)
     const customerArchitect = rowData[15] ? rowData[15].toString().trim() : ''; // Column P
     const notes = rowData[16] ? rowData[16].toString().trim() : '';         // Column Q
 

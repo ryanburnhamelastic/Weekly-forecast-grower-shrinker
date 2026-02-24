@@ -444,13 +444,148 @@ button:disabled {
 ::-webkit-scrollbar-thumb:hover {
   background: #bdc1c6;
 }
+
+/* ============================================ */
+/* HELP MODAL */
+/* ============================================ */
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  position: relative;
+  background: white;
+  border-radius: 8px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  padding: 20px;
+  border-bottom: 1px solid #dadce0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #202124;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #5f6368;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  background: #f8f9fa;
+  color: #202124;
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-body h4 {
+  margin: 16px 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #202124;
+}
+
+.modal-body h4:first-child {
+  margin-top: 0;
+}
+
+.modal-body p {
+  margin: 8px 0;
+  font-size: 13px;
+  color: #5f6368;
+  line-height: 1.5;
+}
+
+.modal-body ol,
+.modal-body ul {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.modal-body li {
+  margin: 6px 0;
+  font-size: 13px;
+  color: #5f6368;
+  line-height: 1.5;
+}
+
+.modal-body ul ul {
+  margin-top: 4px;
+}
+
+.modal-body strong {
+  color: #202124;
+  font-weight: 500;
+}
+
+.modal-footer {
+  padding: 16px 20px;
+  border-top: 1px solid #dadce0;
+  display: flex;
+  justify-content: flex-end;
+}
   </style>
 </head>
 <body>
   <div class="app-container">
     <div id="header">
-      <h2>Weekly Forecast Notes</h2>
-      <div id="user-info"></div>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2>Weekly Forecast Notes</h2>
+          <div id="user-info"></div>
+        </div>
+        <button id="help-btn" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500;">
+          ? Help
+        </button>
+      </div>
     </div>
 
     <div id="week-selector">
@@ -513,6 +648,54 @@ button:disabled {
     </div>
   </div>
 
+  <!-- Help Modal -->
+  <div id="help-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Weekly Forecast - CA Notes Help</h3>
+        <button id="close-help-btn" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <h4>📋 What is this?</h4>
+        <p>This tool helps Customer Architects (CAs) track and add notes for the top 10 growing and shrinking accounts each week.</p>
+
+        <h4>🔍 How to Use</h4>
+        <ol>
+          <li><strong>Select a Week:</strong> Use the dropdown at the top to choose which weekly forecast to view (defaults to latest week)</li>
+          <li><strong>Filter Accounts:</strong> Use the CA and Area filters to narrow down the list of accounts</li>
+          <li><strong>View Metrics:</strong>
+            <ul>
+              <li><strong>WoW:</strong> Week-over-Week % ECU Change</li>
+              <li><strong>MoM:</strong> Month-over-Month ARR Growth %</li>
+              <li><strong>CA Var:</strong> CA Forecast Variance % (your forecast vs actual)</li>
+            </ul>
+          </li>
+          <li><strong>Add/Edit Notes:</strong> Click the "Edit" button on any account card to add or update notes</li>
+          <li><strong>Save Changes:</strong> Click "Save" to save your notes or "Cancel" to discard changes</li>
+        </ol>
+
+        <h4>📈 Growers vs 📉 Shrinkers</h4>
+        <p><strong>Growers:</strong> Top 10 accounts with the highest growth this week</p>
+        <p><strong>Shrinkers:</strong> Top 10 accounts with the largest decline this week</p>
+
+        <h4>💡 Tips</h4>
+        <ul>
+          <li>Notes are saved directly to the Google Sheet</li>
+          <li>Use the filters to quickly find your assigned accounts</li>
+          <li>Refresh the page to see the latest data</li>
+          <li>Only accounts with assigned CAs are shown</li>
+        </ul>
+
+        <h4>❓ Questions?</h4>
+        <p>Contact your Sr Director or check the ExecutionLog tab in the Google Sheet for automation details.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="close-help-footer-btn" class="primary">Got it!</button>
+      </div>
+    </div>
+  </div>
+
   <script>
 /**
  * Weekly Forecast - CA Notes Interface (Client-side)
@@ -554,6 +737,12 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('refresh-btn').addEventListener('click', handleRefresh);
   document.getElementById('ca-filter-dropdown').addEventListener('change', handleCAFilterChange);
   document.getElementById('area-filter-dropdown').addEventListener('change', handleAreaFilterChange);
+
+  // Help modal event listeners
+  document.getElementById('help-btn').addEventListener('click', showHelpModal);
+  document.getElementById('close-help-btn').addEventListener('click', hideHelpModal);
+  document.getElementById('close-help-footer-btn').addEventListener('click', hideHelpModal);
+  document.querySelector('.modal-overlay').addEventListener('click', hideHelpModal);
 });
 
 // ============================================
@@ -1010,9 +1199,34 @@ function formatPercent(value) {
     return 'N/A';
   }
 
+  // Google Sheets stores percentages as decimals (e.g., 4% as 0.04)
   const percentValue = numValue * 100;
   const sign = percentValue >= 0 ? '+' : '';
   return `${sign}${percentValue.toFixed(0)}%`;
+}
+
+function formatCurrency(value) {
+  if (value === null || value === undefined || value === '' || value === 'N/A') {
+    return 'N/A';
+  }
+
+  const numValue = typeof value === 'number' ? value : parseFloat(value);
+
+  if (isNaN(numValue)) {
+    return 'N/A';
+  }
+
+  // Format as currency with sign
+  const sign = numValue >= 0 ? '+' : '';
+  const absValue = Math.abs(numValue);
+
+  // Format with commas and no decimals
+  const formatted = absValue.toLocaleString('en-US', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  });
+
+  return `${sign}$${formatted}`;
 }
 
 function showLoading(show) {
@@ -1064,6 +1278,20 @@ function showToast(message, type = 'info') {
 function handleError(error) {
   console.error('Error:', error);
   showError(`An error occurred: ${error.message || 'Unknown error'}`);
+}
+
+// ============================================
+// HELP MODAL
+// ============================================
+
+function showHelpModal() {
+  document.getElementById('help-modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden'; // Prevent background scrolling
+}
+
+function hideHelpModal() {
+  document.getElementById('help-modal').classList.add('hidden');
+  document.body.style.overflow = ''; // Restore scrolling
 }
   </script>
 </body>
