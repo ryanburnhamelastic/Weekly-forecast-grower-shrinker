@@ -24,18 +24,28 @@ function getCurrentUserInfo() {
     const userEmail = Session.getActiveUser().getEmail();
     const displayName = userEmail.split('@')[0].replace('.', ' ');
 
+    Logger.log(`getCurrentUserInfo: Checking authorization for ${userEmail}`);
+
     // Read CA-Lookup to find user's CA name
     const caMapping = readCALookup();
     let caName = null;
     let isAuthorized = false;
+
+    Logger.log(`getCurrentUserInfo: Found ${Object.keys(caMapping).length} entries in CA-Lookup`);
 
     // Search for user email in CA-Lookup
     for (const [accountId, caInfo] of Object.entries(caMapping)) {
       if (caInfo.email && caInfo.email.toLowerCase() === userEmail.toLowerCase()) {
         caName = caInfo.name;
         isAuthorized = true;
+        Logger.log(`getCurrentUserInfo: Match found! CA Name: ${caName}`);
         break;
       }
+    }
+
+    if (!isAuthorized) {
+      Logger.log(`getCurrentUserInfo: No match found for ${userEmail}`);
+      Logger.log(`getCurrentUserInfo: Sample emails in CA-Lookup: ${Object.values(caMapping).slice(0, 5).map(c => c.email).join(', ')}`);
     }
 
     return {
@@ -46,6 +56,7 @@ function getCurrentUserInfo() {
     };
   } catch (error) {
     Logger.log(`Error in getCurrentUserInfo: ${error.message}`);
+    Logger.log(`Error stack: ${error.stack}`);
     return {
       email: 'unknown@elastic.co',
       displayName: 'Unknown User',
@@ -222,6 +233,39 @@ function extractAccountsFromSection(sheet, startRow, endRow, caName, section) {
   }
 
   return accounts;
+}
+
+/**
+ * TEST FUNCTION - Check CA-Lookup authorization
+ * Run this from the Apps Script editor to see if your email is in CA-Lookup
+ */
+function testCAAuthorization() {
+  const userEmail = Session.getActiveUser().getEmail();
+  Logger.log(`Testing authorization for: ${userEmail}`);
+
+  const caMapping = readCALookup();
+  Logger.log(`Total entries in CA-Lookup: ${Object.keys(caMapping).length}`);
+
+  let found = false;
+  for (const [accountId, caInfo] of Object.entries(caMapping)) {
+    if (caInfo.email && caInfo.email.toLowerCase() === userEmail.toLowerCase()) {
+      Logger.log(`✓ FOUND! Account ID: ${accountId}, CA Name: ${caInfo.name}, Email: ${caInfo.email}`);
+      found = true;
+      break;
+    }
+  }
+
+  if (!found) {
+    Logger.log(`✗ NOT FOUND. Your email is not in CA-Lookup.`);
+    Logger.log(`Sample CA-Lookup entries (first 10):`);
+    Object.entries(caMapping).slice(0, 10).forEach(([accountId, caInfo]) => {
+      Logger.log(`  - Account ${accountId}: ${caInfo.name} (${caInfo.email})`);
+    });
+  }
+
+  const userInfo = getCurrentUserInfo();
+  Logger.log(`\ngetCurrentUserInfo() result:`);
+  Logger.log(JSON.stringify(userInfo, null, 2));
 }
 
 /**
