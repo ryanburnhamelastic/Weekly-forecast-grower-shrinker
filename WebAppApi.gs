@@ -1,39 +1,19 @@
 /**
- * Weekly Forecast - CA Notes Interface (Frontend)
- *
- * Server-side API functions for the HTML sidebar interface and web app.
- * Provides authentication, data retrieval, and save operations.
+ * WebAppApi.gs
+ * Web App API for Weekly Forecast CA Notes Interface
+ * Provides endpoints for web app to interact with spreadsheet data
  */
-
-// ============================================
-// WEB APP ENTRY POINT
-// ============================================
 
 /**
- * Web app entry point - serves the CA Notes Interface as a standalone web app
- * @param {Object} e - Event parameter (contains query parameters)
- * @returns {HtmlOutput} The web app HTML
+ * Serves the web app HTML
+ * @param {Object} e - Event object
+ * @returns {HtmlOutput} Web app HTML
  */
 function doGet(e) {
-  try {
-    const html = HtmlService.createTemplateFromFile('Sidebar')
-      .evaluate()
-      .setTitle('Weekly Forecast - CA Notes')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-
-    return html;
-  } catch (error) {
-    Logger.log(`Error in doGet: ${error.message}`);
-    return HtmlService.createHtmlOutput(
-      '<h1>Error</h1><p>Failed to load the interface: ' + error.message + '</p>'
-    );
-  }
+  return HtmlService.createHtmlOutputFromFile('WebApp')
+    .setTitle('Weekly Forecast - CA Notes')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
-
-// ============================================
-// AUTHENTICATION & AUTHORIZATION
-// ============================================
 
 /**
  * Gets current user information and authorization status
@@ -75,10 +55,6 @@ function getCurrentUserInfo() {
     };
   }
 }
-
-// ============================================
-// DATA RETRIEVAL
-// ============================================
 
 /**
  * Gets list of all weekly tabs (YYYY-MM-DD format)
@@ -248,10 +224,6 @@ function extractAccountsFromSection(sheet, startRow, endRow, caName, section) {
   return accounts;
 }
 
-// ============================================
-// SAVE OPERATIONS
-// ============================================
-
 /**
  * Saves a note for a specific account row
  * @param {string} weeklyTabName - Name of the weekly tab
@@ -314,36 +286,4 @@ function saveAccountNote(weeklyTabName, rowNumber, noteText) {
       error: error.message
     };
   }
-}
-
-// ============================================
-// MENU INTEGRATION
-// ============================================
-
-/**
- * Shows the CA Notes Interface sidebar
- */
-function showNotesInterface() {
-  try {
-    const html = HtmlService.createTemplateFromFile('Sidebar')
-      .evaluate()
-      .setTitle('Weekly Forecast Notes')
-      .setWidth(300);
-
-    SpreadsheetApp.getUi().showSidebar(html);
-  } catch (error) {
-    Logger.log(`Error in showNotesInterface: ${error.message}`);
-    SpreadsheetApp.getUi().alert('Error',
-      `Failed to open interface: ${error.message}`,
-      SpreadsheetApp.getUi().ButtonSet.OK);
-  }
-}
-
-/**
- * Helper function to include HTML files
- * @param {string} filename - Name of the file to include
- * @returns {string} File content
- */
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
