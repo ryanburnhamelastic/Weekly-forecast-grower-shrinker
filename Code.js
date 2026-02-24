@@ -499,7 +499,7 @@ function addNoteForRow(sheet, row, col, section, caMapping) {
  * @param {Object} caMapping - CA lookup mapping with manager info
  */
 function sendCANotifications(sheet, caAccounts, caMapping) {
-  const spreadsheetUrl = `https://docs.google.com/spreadsheets/d/${getTargetSpreadsheetId()}/edit#gid=${sheet.getSheetId()}`;
+  const webAppUrl = 'https://ela.st/weekly-consumption';
   const tabName = sheet.getName();
 
   for (const [email, accounts] of Object.entries(caAccounts)) {
@@ -516,7 +516,7 @@ function sendCANotifications(sheet, caAccounts, caMapping) {
 
     emailBody += `Hi ${caName.split(' ')[0]},\n\n`;
     emailBody += `You have ${accounts.length} account${accounts.length > 1 ? 's' : ''} assigned in this week's forecast that need notes added.\n\n`;
-    emailBody += `Please review and add notes in the sheet:\n${spreadsheetUrl}\n\n`;
+    emailBody += `Please review and add notes using the web app:\n${webAppUrl}\n\n`;
     emailBody += `In your notes, please provide:\n`;
     emailBody += `  • A summary of your recent activities with the account\n`;
     emailBody += `  • Why the account is in the grower/shrinker category\n`;
