@@ -167,33 +167,43 @@ function getAllAccounts(weeklyTabName) {
 function extractAllAccountsFromSection(sheet, startRow, endRow, section) {
   const accounts = [];
 
-  // Column structure (1-indexed):
-  // Columns 1-12: Base data from source
-  // Column 13: CA Forecast
-  // Column 14: CA Forecast Variance
-  // Column 15: CA Forecast Var %
-  // Column 16: Customer Architect
-  // Column 17: Notes
+  // Column structure based on actual sheet (1-indexed):
+  // A: Link
+  // B: Account Name (Biggest 10 Growers/Shrinkers MoM)
+  // C: Area
+  // D: Jan Committed ARR
+  // E: Jan ARR Cons Rate
+  // F: Jan Consumption ARR
+  // G: WoW ECU Change
+  // H: WoW % ECU Change
+  // I: Feb vs Jan Tracked Change
+  // J: Tracking MoM ARR Growth
+  // K: Feb Tracking ARR
+  // L: CA Forecast
+  // M: CA Forecast Variance
+  // N: CA Forecast Var %
+  // O: Customer Architect
+  // P: Notes
 
   for (let row = startRow; row <= endRow; row++) {
-    const rowData = sheet.getRange(row, 1, 1, 17).getValues()[0];
+    const rowData = sheet.getRange(row, 1, 1, 16).getValues()[0];  // Read columns A-P
 
     // Array is 0-indexed, so column N is at index N-1
-    const accountId = rowData[2] ? rowData[2].toString().trim() : '';       // Column 3
-    const accountName = rowData[3] ? rowData[3].toString().trim() : '';     // Column 4
-    const area = rowData[4] ? rowData[4].toString().trim() : '';            // Column 5
-    const wowPercent = rowData[9];                                          // Column 10
-    const momPercent = rowData[10];                                         // Column 11
-    const caForecast = rowData[12];                                         // Column 13
-    const caForecastVar = rowData[13];                                      // Column 14
-    const caForecastVarPct = rowData[14];                                   // Column 15
-    const customerArchitect = rowData[15] ? rowData[15].toString().trim() : ''; // Column 16
-    const notes = rowData[16] ? rowData[16].toString().trim() : '';         // Column 17
+    const link = rowData[0] ? rowData[0].toString().trim() : '';            // Column A
+    const accountName = rowData[1] ? rowData[1].toString().trim() : '';     // Column B
+    const area = rowData[2] ? rowData[2].toString().trim() : '';            // Column C
+    const wowPercent = rowData[7];                                          // Column H (WoW % ECU Change)
+    const momPercent = rowData[9];                                          // Column J (Tracking MoM ARR Growth)
+    const caForecast = rowData[11];                                         // Column L
+    const caForecastVar = rowData[12];                                      // Column M
+    const caForecastVarPct = rowData[13];                                   // Column N
+    const customerArchitect = rowData[14] ? rowData[14].toString().trim() : ''; // Column O
+    const notes = rowData[15] ? rowData[15].toString().trim() : '';         // Column P
 
     // Include all accounts that have a name (no CA filtering)
     if (accountName) {
       accounts.push({
-        accountId: accountId,
+        link: link,
         accountName: accountName,
         area: area,
         wowPercent: wowPercent,
@@ -285,15 +295,15 @@ function saveAccountNote(weeklyTabName, rowNumber, noteText) {
       throw new Error(`Tab "${weeklyTabName}" not found`);
     }
 
-    // Check Customer Architect column (column 16) matches user's CA name
-    const customerArchitect = tab.getRange(rowNumber, 16).getValue()?.toString().trim();
+    // Check Customer Architect column (column O = 15) matches user's CA name
+    const customerArchitect = tab.getRange(rowNumber, 15).getValue()?.toString().trim();
 
     if (customerArchitect !== userInfo.caName) {
       throw new Error('Not authorized to edit this row');
     }
 
-    // Update Notes column (column 17)
-    tab.getRange(rowNumber, 17).setValue(sanitizedNote);
+    // Update Notes column (column P = 16)
+    tab.getRange(rowNumber, 16).setValue(sanitizedNote);
 
     return {
       success: true,
