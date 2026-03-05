@@ -267,25 +267,12 @@ function saveAccountNote(weeklyTabName, rowNumber, noteText) {
       throw new Error('Invalid row number');
     }
 
-    // Get user info for authorization
-    const userInfo = getCurrentUserInfo();
-    if (!userInfo.isAuthorized || !userInfo.caName) {
-      throw new Error('User not authorized');
-    }
-
-    // Open sheet and verify user owns this row
+    // Open sheet
     const targetSheet = SpreadsheetApp.openById(getTargetSpreadsheetId());
     const tab = targetSheet.getSheetByName(weeklyTabName);
 
     if (!tab) {
       throw new Error(`Tab "${weeklyTabName}" not found`);
-    }
-
-    // Check Customer Architect column (column P = 16) matches user's CA name
-    const customerArchitect = tab.getRange(rowNumber, 16).getValue()?.toString().trim();
-
-    if (customerArchitect !== userInfo.caName) {
-      throw new Error('Not authorized to edit this row');
     }
 
     // Update Notes column (column Q = 17)
