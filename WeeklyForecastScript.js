@@ -7,6 +7,7 @@
  * 3. Creates a new dated tab in target sheet
  * 4. Writes combined data with CA assignments
  * 5. Adds @mention comments to notify CAs
+ * 6. Groups accounts by territory and sends email alerts to territory managers
  */
 
 // ============================================
@@ -102,17 +103,22 @@ function weeklyForecastUpdate() {
     const caAccounts = addNotesToCells(newTab, writeResult);
     Logger.log('Notes added successfully');
 
-    // 6. Send email notifications to CAs
-    Logger.log('Sending email notifications...');
-    sendCANotifications(newTab, caAccounts);
-    emailsSent = Object.keys(caAccounts).length;
-    totalAccounts = Object.values(caAccounts).reduce((sum, accounts) => sum + accounts.length, 0);
-    Logger.log('Email notifications sent successfully');
+    // 6. Group accounts by territory
+    Logger.log('Grouping accounts by territory...');
+    const territoryAccounts = groupAccountsByTerritory(caAccounts);
+    Logger.log(`Found ${Object.keys(territoryAccounts).length} territories with accounts`);
+
+    // 7. Send email notifications to territory managers
+    Logger.log('Sending email notifications to territory managers...');
+    sendTerritoryManagerNotifications(newTab, territoryAccounts);
+    emailsSent = Object.keys(territoryAccounts).length;
+    totalAccounts = Object.values(territoryAccounts).reduce((sum, accounts) => sum + accounts.length, 0);
+    Logger.log('Territory manager notifications sent successfully');
 
     executionStatus = 'Success';
     Logger.log('Weekly forecast update completed successfully!');
     showAlert('Success!',
-      `Weekly forecast data has been copied to tab: ${tabName}`);
+      `Weekly forecast data has been copied to tab: ${tabName}\nNotifications sent to ${emailsSent} territory manager(s) for ${totalAccounts} accounts.`);
 
   } catch (error) {
     executionStatus = 'Failed';
@@ -333,9 +339,6 @@ function writeCombinedData(sheet, data, caMapping) {
   combinedFontColors.push([]);
   combinedNumberFormats.push([]);
   combinedFontWeights.push([]);
-
-  // Track where shrinkers section starts
-  const shrinkersStartRow = combinedData.length + 1;  // +1 for 1-indexed
 
   // Add Shrinkers section header
   combinedData.push(['BIGGEST 10 SHRINKERS WoW']);
@@ -601,6 +604,117 @@ function buildCCList(accounts) {
   });
 
   return Array.from(ccSet);
+}
+
+/**
+ * Groups accounts by territory/area
+ * @param {Object} caAccounts - Mapping of CA email to their accounts
+ * @returns {Object} Mapping of territory to accounts
+ */
+function groupAccountsByTerritory(caAccounts) {
+  const territoryAccounts = {};
+
+  // Iterate through all CA accounts and regroup by territory
+  for (const accounts of Object.values(caAccounts)) {
+    accounts.forEach(account => {
+      const territory = account.area;
+
+      if (!territoryAccounts[territory]) {
+        territoryAccounts[territory] = [];
+      }
+
+      territoryAccounts[territory].push(account);
+    });
+  }
+
+  return territoryAccounts;
+}
+
+/**
+ * Sends email notifications to territory managers with their assigned accounts
+ * @param {Sheet} sheet - The target sheet
+ * @param {Object} territoryAccounts - Mapping of territory to accounts
+ */
+function sendTerritoryManagerNotifications(sheet, territoryAccounts) {
+  const spreadsheetUrl = `https://docs.google.com/spreadsheets/d/${CONFIG.TARGET_SHEET_ID}/edit#gid=${sheet.getSheetId()}`;
+  const tabName = sheet.getName();
+
+  for (const [territory, accounts] of Object.entries(territoryAccounts)) {
+    if (accounts.length === 0) continue;
+
+    // Get manager email for this territory
+    const managerEmail = CONFIG.AREA_MANAGERS[territory];
+
+    if (!managerEmail) {
+      Logger.log(`No manager configured for territory: ${territory}`);
+      continue;
+    }
+
+    // Use test email if in test mode
+    const toEmail = CONFIG.TEST_MODE ? CONFIG.TEST_EMAIL : managerEmail;
+
+    // Group by section
+    const growers = accounts.filter(a => a.section === 'Growers');
+    const shrinkers = accounts.filter(a => a.section === 'Shrinkers');
+
+    // Build email body
+    let emailBody = CONFIG.TEST_MODE
+      ? `[TEST MODE - This email would normally go to the ${territory} manager at ${managerEmail}]\n\n`
+      : '';
+
+    emailBody += `Hi,\n\n`;
+    emailBody += `This is your weekly forecast alert for ${territory}.\n\n`;
+    emailBody += `There are ${accounts.length} account${accounts.length > 1 ? 's' : ''} in your territory that require attention this week.\n\n`;
+    emailBody += `Please review the full details in the sheet:\n${spreadsheetUrl}\n\n`;
+
+    if (growers.length > 0) {
+      emailBody += `📈 GROWERS (${growers.length}):\n`;
+      growers.forEach(acc => {
+        const percentDisplay = formatPercent(acc.wowPercent);
+        emailBody += `  • ${acc.accountName} (${percentDisplay}) - CA: ${acc.caName}\n`;
+      });
+      emailBody += '\n';
+    }
+
+    if (shrinkers.length > 0) {
+      emailBody += `📉 SHRINKERS (${shrinkers.length}):\n`;
+      shrinkers.forEach(acc => {
+        const percentDisplay = formatPercent(acc.wowPercent);
+        emailBody += `  • ${acc.accountName} (${percentDisplay}) - CA: ${acc.caName}\n`;
+      });
+      emailBody += '\n';
+    }
+
+    emailBody += `Tab: ${tabName}\n\n`;
+    emailBody += `Thank you!`;
+
+    const subject = CONFIG.TEST_MODE
+      ? `[TEST] Weekly Forecast Alert - ${territory} (${accounts.length} account${accounts.length > 1 ? 's' : ''})`
+      : `Weekly Forecast Alert - ${territory} (${accounts.length} account${accounts.length > 1 ? 's' : ''})`;
+
+    try {
+      const emailParams = {
+        to: toEmail,
+        subject: subject,
+        body: emailBody
+      };
+
+      // CC Sr Director
+      emailParams.cc = CONFIG.TEST_MODE ? CONFIG.TEST_EMAIL : CONFIG.SR_DIRECTOR_EMAIL;
+
+      if (CONFIG.TEST_MODE) {
+        emailBody = `[CC would include: ${CONFIG.SR_DIRECTOR_EMAIL}]\n\n` + emailBody;
+        emailParams.body = emailBody;
+      }
+
+      MailApp.sendEmail(emailParams);
+      Logger.log(`Sent email to ${toEmail} for territory ${territory} (${accounts.length} accounts)`);
+    } catch (error) {
+      Logger.log(`Failed to send email for territory ${territory}: ${error.message}`);
+    }
+  }
+
+  Logger.log(`Sent notifications to ${Object.keys(territoryAccounts).length} territory manager(s)`);
 }
 
 // ============================================
